@@ -37,7 +37,7 @@ export default function AdminCustomer() {
 
   function copyInvite() {
     const link = `${window.location.origin}/c/${customer.access_code}`
-    const text = `Hi${customer.contact_name ? ' ' + customer.contact_name : ''} — you can follow your Tradelec jobs live here:\n${link}\nAccess code: ${customer.access_code}`
+    const text = `Hi${customer.contact_name ? ' ' + customer.contact_name : ''} — you can follow your Tradelec jobs live here, no sign-in needed:\n${link}`
     navigator.clipboard.writeText(text)
     setToast('Invite copied — paste into a text or email')
   }
@@ -62,10 +62,10 @@ export default function AdminCustomer() {
           <div className="card">
             <div className="row-between">
               <div>
-                <div className="eyebrow">Customer portal access</div>
-                <span className="code-chip" style={{ marginTop: 6 }}>{customer.access_code}</span>
+                <div className="eyebrow">Customer live page</div>
+                <p className="muted" style={{ margin: '4px 0 0' }}>Send this link once — it takes them straight to their jobs.</p>
               </div>
-              <button className="btn small" onClick={copyInvite}>Copy invite link</button>
+              <button className="btn amber small" onClick={copyInvite}>Copy customer link</button>
             </div>
           </div>
         )}
