@@ -62,7 +62,7 @@ export default function Admin() {
     if (error) { setToast('Could not save. Try again.'); return }
     setForm({ company: '', contact_name: '', contact_email: '', contact_phone: '' })
     setShowForm(false)
-    setToast(`Customer added — code ${access_code}`)
+    setToast('Customer added — open them to copy their link')
     load()
   }
 
@@ -104,7 +104,7 @@ export default function Admin() {
 
         {customers === null && <p className="muted">Loading…</p>}
         {customers?.length === 0 && !showForm && (
-          <div className="empty">No customers yet. Add your first one to generate their access code.</div>
+          <div className="empty">No customers yet. Add your first one to create their live page.</div>
         )}
         {customers?.map(c => (
           <div key={c.id} className="card click" onClick={() => nav(`/admin/customer/${c.id}`)}>
@@ -113,7 +113,11 @@ export default function Admin() {
                 <h2>{c.company}</h2>
                 <p className="muted">{c.contact_name}{c.contact_phone ? ` · ${c.contact_phone}` : ''}</p>
               </div>
-              <span className="code-chip">{c.access_code}</span>
+              <button className="btn small" onClick={e => {
+                e.stopPropagation()
+                navigator.clipboard.writeText(`${window.location.origin}/c/${c.access_code}`)
+                setToast(`Link copied for ${c.company}`)
+              }}>Copy customer link</button>
             </div>
           </div>
         ))}
