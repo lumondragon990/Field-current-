@@ -1,28 +1,8 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import React from 'react'
+import { Link } from 'react-router-dom'
 import { TopBar } from '../components.jsx'
 
 export default function Home() {
-  const [code, setCode] = useState('')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  const nav = useNavigate()
-
-  async function enter(e) {
-    e?.preventDefault()
-    const clean = code.trim().toUpperCase()
-    if (!clean) return
-    setBusy(true); setErr('')
-    const { data, error } = await supabase
-      .from('customers').select('access_code').eq('access_code', clean).maybeSingle()
-    setBusy(false)
-    if (error) { setErr('Connection problem. Try again in a moment.'); return }
-    if (!data) { setErr('That code was not found. Check it with your Tradelec contact.'); return }
-    localStorage.setItem('fc_last_code', clean)
-    nav(`/c/${clean}`)
-  }
-
   return (
     <>
       <TopBar />
@@ -37,18 +17,16 @@ export default function Home() {
         </div>
 
         <div className="card">
-          <h2>Customer access</h2>
-          <p className="muted">Enter the access code from your Tradelec project contact.</p>
-          <form onSubmit={enter}>
-            <div className="field">
-              <label htmlFor="code">Access code</label>
-              <input id="code" className="mono" value={code} placeholder="e.g. ACME-4821"
-                autoCapitalize="characters" autoComplete="off"
-                onChange={e => setCode(e.target.value)} />
-            </div>
-            {err && <p className="muted" style={{ color: 'var(--red)' }}>{err}</p>}
-            <button className="btn amber" disabled={busy}>{busy ? 'Checking…' : 'View my jobs'}</button>
-          </form>
+          <h2>Customers</h2>
+          <p className="muted">
+            Your live job page is one tap away — just open the link your Tradelec
+            project contact sent you. No sign-in, no codes. If you can't find your
+            link, call or text your project manager and we'll resend it.
+          </p>
+          <div className="btn-row">
+            <a className="btn small" href="tel:8329700859">Call Tradelec</a>
+            <a className="btn ghost small" href="mailto:lmondragon@tradelec.net">Email us</a>
+          </div>
         </div>
 
         <p className="muted" style={{ textAlign: 'center' }}>
