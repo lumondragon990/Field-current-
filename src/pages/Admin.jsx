@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, makeAccessCode } from '../lib/supabase.js'
+import { supabase, makeAccessCode, cleanCode } from '../lib/supabase.js'
 import { TopBar, Toast, useToast } from '../components.jsx'
 
 const PIN = import.meta.env.VITE_ADMIN_PIN || '0000'
@@ -43,7 +43,7 @@ export default function Admin() {
   const { ok, tryPin, logout } = usePinGate()
   const [customers, setCustomers] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ company: '', contact_name: '', contact_email: '', contact_phone: '' })
+  const [form, setForm] = useState({ company: '', contact_name: '', contact_email: '', contact_phone: '', access_code: '' })
   const [toast, setToast] = useToast()
   const nav = useNavigate()
 
@@ -57,12 +57,20 @@ export default function Admin() {
   async function addCustomer(e) {
     e.preventDefault()
     if (!form.company.trim()) return
-    const access_code = makeAccessCode(form.company)
-    const { error } = await supabase.from('customers').insert({ ...form, access_code })
-    if (error) { setToast('Could not save. Try again.'); return }
-    setForm({ company: '', contact_name: '', contact_email: '', contact_phone: '' })
+    const access_code = cleanCode(form.access_code) || makeAccessCode(form.company)
+    const { error } = await supabase.from('customers').insert({
+      company: form.company, contact_name: form.contact_name,
+      contact_email: form.contact_email, contact_phone: form.contact_phone,
+      access_code
+    })
+    if (error) {
+      if (error.code === '23505') setToast(`Code ${access_code} is already in use — pick another`)
+      else setToast('Could not save. Try again.')
+      return
+    }
+    setForm({ company: '', contact_name: '', contact_email: '', contact_phone: '', access_code: '' })
     setShowForm(false)
-    setToast('Customer added — open them to copy their link')
+    setToast(`Customer added with code ${access_code}`)
     load()
   }
 
@@ -91,6 +99,10 @@ export default function Admin() {
             <form onSubmit={addCustomer}>
               <div className="field"><label>Company *</label>
                 <input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} /></div>
+              <div className="field"><label>Client code — you choose it (optional)</label>
+                <input className="mono" placeholder="e.g. ACME-2026 (blank = auto)" value={form.access_code}
+                  autoCapitalize="characters"
+                  onChange={e => setForm({ ...form, access_code: e.target.value })} /></div>
               <div className="field"><label>Contact name</label>
                 <input value={form.contact_name} onChange={e => setForm({ ...form, contact_name: e.target.value })} /></div>
               <div className="field"><label>Contact email</label>
@@ -104,7 +116,7 @@ export default function Admin() {
 
         {customers === null && <p className="muted">Loading…</p>}
         {customers?.length === 0 && !showForm && (
-          <div className="empty">No customers yet. Add your first one to create their live page.</div>
+          <div className="empty">No customers yet. Add your first one and assign their client code.</div>
         )}
         {customers?.map(c => (
           <div key={c.id} className="card click" onClick={() => nav(`/admin/customer/${c.id}`)}>
@@ -113,11 +125,7 @@ export default function Admin() {
                 <h2>{c.company}</h2>
                 <p className="muted">{c.contact_name}{c.contact_phone ? ` · ${c.contact_phone}` : ''}</p>
               </div>
-              <button className="btn small" onClick={e => {
-                e.stopPropagation()
-                navigator.clipboard.writeText(`${window.location.origin}/c/${c.access_code}`)
-                setToast(`Link copied for ${c.company}`)
-              }}>Copy customer link</button>
+              <span className="code-chip">{c.access_code}</span>
             </div>
           </div>
         ))}
