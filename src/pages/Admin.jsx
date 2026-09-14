@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase, makeAccessCode, cleanCode } from '../lib/supabase.js'
+import { supabase, makeAccessCode, cleanCode, friendlyError } from '../lib/supabase.js'
 import { TopBar, Toast, useToast } from '../components.jsx'
 
 const PIN = import.meta.env.VITE_ADMIN_PIN || '0000'
@@ -63,11 +63,7 @@ export default function Admin() {
       contact_email: form.contact_email, contact_phone: form.contact_phone,
       access_code
     })
-    if (error) {
-      if (error.code === '23505') setToast(`Code ${access_code} is already in use — pick another`)
-      else setToast('Could not save. Try again.')
-      return
-    }
+    if (error) { setToast(friendlyError(error, 'Save')); return }
     setForm({ company: '', contact_name: '', contact_email: '', contact_phone: '', access_code: '' })
     setShowForm(false)
     setToast(`Customer added with code ${access_code}`)
