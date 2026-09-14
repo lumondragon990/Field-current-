@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { supabase, uploadPhotos, STATUS_LABELS } from '../lib/supabase.js'
+import { supabase, uploadPhotos, STATUS_LABELS, friendlyError } from '../lib/supabase.js'
 import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
 
@@ -57,8 +57,8 @@ export default function AdminJob() {
       if (fileRef.current) fileRef.current.value = ''
       setToast('Posted — your customer sees it now')
       load()
-    } catch {
-      setToast('Something failed while posting. Check your connection and try again.')
+    } catch (err) {
+      setToast(friendlyError(err, 'Post'))
     } finally { setBusy('') }
   }
 
