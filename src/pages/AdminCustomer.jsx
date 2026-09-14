@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { supabase, cleanCode } from '../lib/supabase.js'
 import { TopBar, StatusBadge, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
 
@@ -12,6 +12,7 @@ export default function AdminCustomer() {
   const [jobs, setJobs] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', site: '', scope: '', job_number: '' })
+  const [codeEdit, setCodeEdit] = useState('')
   const [toast, setToast] = useToast()
 
   useEffect(() => { if (ok) load() }, [ok, id])
@@ -19,9 +20,25 @@ export default function AdminCustomer() {
   async function load() {
     const { data: c } = await supabase.from('customers').select('*').eq('id', id).single()
     setCustomer(c)
+    setCodeEdit(c?.access_code || '')
     const { data: j } = await supabase.from('jobs').select('*')
       .eq('customer_id', id).order('created_at', { ascending: false })
     setJobs(j || [])
+  }
+
+  async function saveCode(e) {
+    e.preventDefault()
+    const code = cleanCode(codeEdit)
+    if (!code) { setToast('Code cannot be empty'); return }
+    if (code === customer.access_code) { setToast('That is already their code'); return }
+    const { error } = await supabase.from('customers').update({ access_code: code }).eq('id', id)
+    if (error) {
+      if (error.code === '23505') setToast(`Code ${code} is already in use — pick another`)
+      else setToast('Could not save. Try again.')
+      return
+    }
+    setToast(`Client code updated to ${code}`)
+    load()
   }
 
   async function addJob(e) {
@@ -37,7 +54,7 @@ export default function AdminCustomer() {
 
   function copyInvite() {
     const link = `${window.location.origin}/c/${customer.access_code}`
-    const text = `Hi${customer.contact_name ? ' ' + customer.contact_name : ''} — you can follow your Tradelec jobs live here, no sign-in needed:\n${link}`
+    const text = `Hi${customer.contact_name ? ' ' + customer.contact_name : ''} — you can follow your Tradelec jobs live here:\n${link}\nYour client code: ${customer.access_code}`
     navigator.clipboard.writeText(text)
     setToast('Invite copied — paste into a text or email')
   }
@@ -60,13 +77,19 @@ export default function AdminCustomer() {
 
         {customer && (
           <div className="card">
-            <div className="row-between">
-              <div>
-                <div className="eyebrow">Customer live page</div>
-                <p className="muted" style={{ margin: '4px 0 0' }}>Send this link once — it takes them straight to their jobs.</p>
+            <h2>Client code</h2>
+            <p className="muted">This is what your customer types to see their jobs. Change it any time.</p>
+            <form onSubmit={saveCode}>
+              <div className="field">
+                <label>Assigned code</label>
+                <input className="mono" value={codeEdit} autoCapitalize="characters"
+                  onChange={e => setCodeEdit(e.target.value)} />
               </div>
-              <button className="btn amber small" onClick={copyInvite}>Copy customer link</button>
-            </div>
+              <div className="btn-row">
+                <button className="btn small" type="submit">Save code</button>
+                <button className="btn amber small" type="button" onClick={copyInvite}>Copy invite for customer</button>
+              </div>
+            </form>
           </div>
         )}
 
