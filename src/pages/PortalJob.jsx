@@ -6,20 +6,25 @@ import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../c
 export default function PortalJob() {
   const { code, id } = useParams()
   const [job, setJob] = useState(null)
+  const [company, setCompany] = useState('')
   const [updates, setUpdates] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [comment, setComment] = useState('')
+  const [sending, setSending] = useState(false)
   const [big, setBig] = useState(null)
   const [toast, setToast] = useToast()
 
   useEffect(() => {
     load()
-    // LIVE: new updates appear without refreshing
     const ch = supabase.channel(`job-${id}`)
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'updates', filter: `job_id=eq.${id}` },
         payload => {
-          setUpdates(prev => [payload.new, ...(prev || [])])
-          setToast('New update from the field')
+          setUpdates(prev => {
+            if ((prev || []).some(u => u.id === payload.new.id)) return prev
+            return [payload.new, ...(prev || [])]
+          })
+          if (payload.new.kind !== 'comment') setToast('New update from the field')
         })
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${id}` },
@@ -29,11 +34,28 @@ export default function PortalJob() {
   }, [id])
 
   async function load() {
+    const { data: c } = await supabase.from('customers').select('company')
+      .eq('access_code', code.toUpperCase()).maybeSingle()
+    setCompany(c?.company || 'Customer')
     const { data: j } = await supabase.from('jobs').select('*').eq('id', id).single()
     setJob(j)
     const { data: u } = await supabase.from('updates').select('*')
       .eq('job_id', id).order('created_at', { ascending: false })
     setUpdates(u || [])
+  }
+
+  async function sendComment(e) {
+    e.preventDefault()
+    if (!comment.trim()) return
+    setSending(true)
+    const { error } = await supabase.from('updates').insert({
+      job_id: id, kind: 'comment', body: comment.trim(), author: `${company} (customer)`
+    })
+    setSending(false)
+    if (error) { setToast('Could not send. Try again.'); return }
+    setComment('')
+    setToast('Comment sent to the Tradelec team')
+    load()
   }
 
   const shown = (updates || []).filter(u => filter === 'all' ? true : u.kind === filter)
@@ -70,6 +92,18 @@ export default function PortalJob() {
             </button>
             <a className="btn ghost small" href="tel:8329700859">Call Tradelec</a>
           </div>
+        </div>
+
+        <div className="card no-print">
+          <h2>Questions or comments?</h2>
+          <p className="muted">Write to the Tradelec team here — it goes straight to this job's timeline.</p>
+          <form onSubmit={sendComment}>
+            <div className="field">
+              <textarea placeholder="e.g. Can you send a photo of the nameplate before you close up?"
+                value={comment} onChange={e => setComment(e.target.value)} />
+            </div>
+            <button className="btn" disabled={sending}>{sending ? 'Sending…' : 'Send comment'}</button>
+          </form>
         </div>
 
         <h2>Field timeline</h2>
