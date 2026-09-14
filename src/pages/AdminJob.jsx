@@ -18,7 +18,21 @@ export default function AdminJob() {
   const [toast, setToast] = useToast()
   const fileRef = useRef()
 
-  useEffect(() => { if (ok) load() }, [ok, id])
+  useEffect(() => {
+    if (!ok) return
+    load()
+    const ch = supabase.channel(`admin-job-${id}`)
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'updates', filter: `job_id=eq.${id}` },
+        payload => {
+          setUpdates(prev => {
+            if ((prev || []).some(u => u.id === payload.new.id)) return prev
+            return [payload.new, ...(prev || [])]
+          })
+        })
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [ok, id])
 
   async function load() {
     const { data: j } = await supabase.from('jobs').select('*, customers(company)').eq('id', id).single()
@@ -82,7 +96,7 @@ export default function AdminJob() {
         </div>
 
         <div className="card">
-          <h2>Post an update</h2>
+          <h2>Upload photos &amp; reports</h2>
           <form onSubmit={post}>
             <div className="field">
               <label>Type</label>
@@ -112,7 +126,7 @@ export default function AdminJob() {
           </form>
         </div>
 
-        <h2 style={{ marginTop: 24 }}>Timeline</h2>
+        <h2 style={{ marginTop: 24 }}>Timeline — includes customer comments</h2>
         {updates?.length === 0 && <div className="empty">No updates posted yet.</div>}
         {updates?.map(u => <UpdateCard key={u.id} u={u} onPhotoClick={setBig} />)}
 
