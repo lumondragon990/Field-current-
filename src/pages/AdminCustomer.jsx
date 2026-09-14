@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { supabase, cleanCode } from '../lib/supabase.js'
+import { supabase, cleanCode, friendlyError } from '../lib/supabase.js'
 import { TopBar, StatusBadge, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
 
@@ -32,11 +32,7 @@ export default function AdminCustomer() {
     if (!code) { setToast('Code cannot be empty'); return }
     if (code === customer.access_code) { setToast('That is already their code'); return }
     const { error } = await supabase.from('customers').update({ access_code: code }).eq('id', id)
-    if (error) {
-      if (error.code === '23505') setToast(`Code ${code} is already in use — pick another`)
-      else setToast('Could not save. Try again.')
-      return
-    }
+    if (error) { setToast(friendlyError(error, 'Save')); return }
     setToast(`Client code updated to ${code}`)
     load()
   }
@@ -45,7 +41,7 @@ export default function AdminCustomer() {
     e.preventDefault()
     if (!form.title.trim()) return
     const { error } = await supabase.from('jobs').insert({ ...form, customer_id: id, status: 'scheduled' })
-    if (error) { setToast('Could not save. Try again.'); return }
+    if (error) { setToast(friendlyError(error, 'Save')); return }
     setForm({ title: '', site: '', scope: '', job_number: '' })
     setShowForm(false)
     setToast('Job created')
