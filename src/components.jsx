@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { STATUS_LABELS, fmtStamp } from './lib/supabase.js'
+import { STATUS_LABELS, fmtStamp, configOk } from './lib/supabase.js'
 
 export function TopBar({ who, homeTo = '/' }) {
   return (
-    <div className="topbar">
-      <div className="topbar-inner">
-        <Link to={homeTo} className="brand"><span className="bolt">⚡</span> FieldCurrent</Link>
-        <div className="who">{who || <span className="brand-sub">LIVE FROM THE FIELD · TRADELEC</span>}</div>
+    <>
+      <div className="topbar">
+        <div className="topbar-inner">
+          <Link to={homeTo} className="brand"><span className="bolt">⚡</span> FieldCurrent</Link>
+          <div className="who">{who || <span className="brand-sub">LIVE FROM THE FIELD · TRADELEC</span>}</div>
+        </div>
       </div>
-    </div>
+      {!configOk && (
+        <div style={{ background: '#B4432F', color: '#fff', padding: '10px 16px', fontSize: 14, textAlign: 'center' }}>
+          Setup needed: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel → Settings → Environment Variables, then Redeploy.
+        </div>
+      )}
+    </>
   )
 }
 
