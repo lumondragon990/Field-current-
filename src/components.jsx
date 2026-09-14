@@ -6,9 +6,7 @@ export function TopBar({ who, homeTo = '/' }) {
   return (
     <div className="topbar">
       <div className="topbar-inner">
-        <Link to={homeTo} className="brand">
-          <span className="bolt">⚡</span> FieldCurrent
-        </Link>
+        <Link to={homeTo} className="brand"><span className="bolt">⚡</span> FieldCurrent</Link>
         <div className="who">{who || <span className="brand-sub">LIVE FROM THE FIELD · TRADELEC</span>}</div>
       </div>
     </div>
@@ -44,7 +42,13 @@ export function Lightbox({ url, onClose }) {
   )
 }
 
-const KIND_LABELS = { note: 'Field note', photos: 'Photos', report: 'Report', status: 'Status change' }
+const KIND_LABELS = {
+  note: 'Field note',
+  photos: 'Photos',
+  report: 'Report',
+  status: 'Status change',
+  comment: 'Customer comment'
+}
 
 export function UpdateCard({ u, onPhotoClick }) {
   return (
@@ -58,8 +62,7 @@ export function UpdateCard({ u, onPhotoClick }) {
         {Array.isArray(u.photo_urls) && u.photo_urls.length > 0 && (
           <div className="photo-grid">
             {u.photo_urls.map((url, i) => (
-              <img key={i} src={url} alt={`Job photo ${i + 1}`} loading="lazy"
-                onClick={() => onPhotoClick?.(url)} />
+              <img key={i} src={url} alt={`Job photo ${i + 1}`} loading="lazy" onClick={() => onPhotoClick?.(url)} />
             ))}
           </div>
         )}
