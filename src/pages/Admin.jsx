@@ -85,7 +85,7 @@ export default function Admin() {
             <button className="btn amber small" onClick={() => setShowForm(s => !s)}>
               {showForm ? 'Cancel' : '+ Add customer'}
             </button>
-            <button className="btn small" onClick={() => nav('/admin/expenses')}>Receipts &amp; purchases</button>
+            <button className="btn small" onClick={() => nav('/admin/expenses')}>Receipts & purchases</button>
             <button className="btn ghost small" onClick={() => { logout(); nav('/') }}>Sign out</button>
           </div>
         </div>
