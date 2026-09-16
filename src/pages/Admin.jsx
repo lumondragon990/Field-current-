@@ -3,16 +3,28 @@ import { useNavigate } from 'react-router-dom'
 import { supabase, makeAccessCode, cleanCode, friendlyError } from '../lib/supabase.js'
 import { TopBar, Toast, useToast } from '../components.jsx'
 
-const PIN = import.meta.env.VITE_ADMIN_PIN || '0000'
+const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '0000'
+const TEAM_PIN = import.meta.env.VITE_TEAM_PIN || ''
 
 export function usePinGate() {
   const [ok, setOk] = useState(() => localStorage.getItem('fc_admin') === 'yes')
+  const [role, setRole] = useState(() => localStorage.getItem('fc_role') || 'admin')
   function tryPin(v) {
-    if (v === PIN) { localStorage.setItem('fc_admin', 'yes'); setOk(true); return true }
+    if (v === ADMIN_PIN) {
+      localStorage.setItem('fc_admin', 'yes'); localStorage.setItem('fc_role', 'admin')
+      setRole('admin'); setOk(true); return true
+    }
+    if (TEAM_PIN && v === TEAM_PIN) {
+      localStorage.setItem('fc_admin', 'yes'); localStorage.setItem('fc_role', 'team')
+      setRole('team'); setOk(true); return true
+    }
     return false
   }
-  function logout() { localStorage.removeItem('fc_admin'); setOk(false) }
-  return { ok, tryPin, logout }
+  function logout() {
+    localStorage.removeItem('fc_admin'); localStorage.removeItem('fc_role')
+    setOk(false); setRole('admin')
+  }
+  return { ok, role, tryPin, logout }
 }
 
 export function PinScreen({ tryPin }) {
