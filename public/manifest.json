@@ -1,0 +1,13 @@
+{
+  "name": "FieldCurrent — Tradelec",
+  "short_name": "FieldCurrent",
+  "description": "Live job updates, reports, and receipts for Tradelec field services.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ECEDEA",
+  "theme_color": "#16232E",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

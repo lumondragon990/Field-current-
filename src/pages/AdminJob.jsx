@@ -151,6 +151,11 @@ export default function AdminJob() {
   async function aiReport() {
     try {
       setAiBusy(true)
+      // Include up to 3 of today's attached photos so the AI reports on what it sees
+      const today_images = []
+      for (const f of files.slice(0, 3)) {
+        try { today_images.push({ data: await toScanImage(f), media_type: 'image/jpeg' }) } catch { /* skip unreadable */ }
+      }
       const r = await fetch('/api/write-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,6 +165,7 @@ export default function AdminJob() {
             status: job?.status, scope: setup.scope || job?.scope, daily_tasks: setup.daily_tasks || job?.daily_tasks
           },
           notes: body,
+          today_images,
           reference_urls: Array.isArray(job?.reference_urls) ? job.reference_urls : []
         })
       })
@@ -279,16 +285,16 @@ export default function AdminJob() {
               <textarea placeholder="Type rough notes from the field, then let the AI turn them into the client report…" value={body}
                 onChange={e => setBody(e.target.value)} />
             </div>
-            <div className="btn-row">
-              <button className="btn small" type="button" onClick={aiReport} disabled={aiBusy}>
-                {aiBusy ? '⏳ AI writing…' : '✨ AI: write today\'s report'}
-              </button>
-            </div>
             <div className="field">
-              <label>Photos — camera or camera roll</label>
+              <label>Photos — camera or camera roll (the AI reads these for the report too)</label>
               <input ref={fileRef} type="file" accept="image/*" multiple
                 onChange={e => setFiles(Array.from(e.target.files || []))} />
               {files.length > 0 && <p className="muted">{files.length} photo{files.length > 1 ? 's' : ''} selected</p>}
+            </div>
+            <div className="btn-row">
+              <button className="btn small" type="button" onClick={aiReport} disabled={aiBusy}>
+                {aiBusy ? '⏳ AI writing…' : '✨ AI: write today\'s report (uses notes + photos + job files)'}
+              </button>
             </div>
             <button className="btn amber" disabled={!!busy}>{busy || 'Post update'}</button>
           </form>
