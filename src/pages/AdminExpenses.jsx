@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useSearchParams, Link } from 'react-router-dom'
 import { supabase, uploadPhotos, fmtStamp, friendlyError } from '../lib/supabase.js'
 import { TopBar, Lightbox, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
@@ -29,6 +30,9 @@ function toScanImage(file) {
 
 export default function AdminExpenses() {
   const { ok, tryPin } = usePinGate()
+  const [params] = useSearchParams()
+  const jobId = params.get('job')
+  const [job, setJob] = useState(null)
   const [expenses, setExpenses] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
@@ -42,11 +46,21 @@ export default function AdminExpenses() {
   const [toast, setToast] = useToast()
   const fileRef = useRef()
 
-  useEffect(() => { if (ok) load() }, [ok])
+  useEffect(() => { if (ok) load() }, [ok, jobId])
 
   async function load() {
     const { data } = await supabase.from('expenses').select('*').order('created_at', { ascending: false })
     setExpenses(data || [])
+    if (jobId) {
+      const { data: j } = await supabase.from('jobs').select('title, customers(company)').eq('id', jobId).maybeSingle()
+      setJob(j || null)
+      if (j) {
+        setShowForm(true)
+        setForm(f => f.project ? f : { ...f, project: j.title })
+      }
+    } else {
+      setJob(null)
+    }
   }
 
   async function scanReceipt(file) {
@@ -94,6 +108,7 @@ export default function AdminExpenses() {
       if (form.purchased_by.trim()) localStorage.setItem('fc_emp_name', form.purchased_by.trim())
       const { error } = await supabase.from('expenses').insert({
         vendor: form.vendor.trim(), amount,
+        job_id: jobId || null,
         project: form.project.trim() || null,
         receipt_date: form.receipt_date || null,
         note: form.note.trim() || null,
@@ -123,7 +138,8 @@ export default function AdminExpenses() {
 
   if (!ok) return <PinScreen tryPin={tryPin} />
 
-  const list = expenses || []
+  const all = expenses || []
+  const list = jobId ? all.filter(x => x.job_id === jobId) : all
   const total = list.reduce((s, x) => s + Number(x.amount || 0), 0)
   const now = new Date()
   const monthTotal = list
@@ -153,6 +169,12 @@ export default function AdminExpenses() {
           <div>
             <div className="eyebrow">Field console</div>
             <h1>Receipts & purchases</h1>
+            {jobId && (
+              <p className="muted">
+                Showing receipts for: <strong>{job?.title || 'this job'}</strong>{job?.customers?.company ? ` (${job.customers.company})` : ''}
+                {' · '}<Link to="/admin/expenses">Show all receipts</Link>
+              </p>
+            )}
           </div>
           <button className="btn amber small" onClick={() => setShowForm(s => !s)}>
             {showForm ? 'Cancel' : '+ Add receipt'}
