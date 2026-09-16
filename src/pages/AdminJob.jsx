@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { supabase, uploadPhotos, STATUS_LABELS, friendlyError } from '../lib/supabase.js'
 import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
@@ -7,6 +7,8 @@ import { usePinGate, PinScreen } from './Admin.jsx'
 export default function AdminJob() {
   const { ok, tryPin } = usePinGate()
   const { id } = useParams()
+  const nav = useNavigate()
+  const [jobSpend, setJobSpend] = useState(null)
   const [job, setJob] = useState(null)
   const [updates, setUpdates] = useState(null)
   const [kind, setKind] = useState('photos')
@@ -40,6 +42,8 @@ export default function AdminJob() {
     const { data: u } = await supabase.from('updates').select('*')
       .eq('job_id', id).order('created_at', { ascending: false })
     setUpdates(u || [])
+    const { data: ex } = await supabase.from('expenses').select('amount').eq('job_id', id)
+    if (ex) setJobSpend({ count: ex.length, total: ex.reduce((s2, x) => s2 + Number(x.amount || 0), 0) })
   }
 
   async function post(e) {
@@ -92,6 +96,20 @@ export default function AdminJob() {
               <button key={k} className={`btn small ${job?.status === k ? 'amber' : 'ghost'}`}
                 onClick={() => setStatus(k)}>{label}</button>
             ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="row-between">
+            <div>
+              <h2>Receipts for this job</h2>
+              <p className="muted" style={{ margin: '4px 0 0' }}>
+                {jobSpend ? `${jobSpend.count} receipt${jobSpend.count === 1 ? '' : 's'} · $${jobSpend.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} spent` : 'Loading…'}
+              </p>
+            </div>
+            <button className="btn amber small" type="button" onClick={() => nav(`/admin/expenses?job=${id}`)}>
+              + Add receipt for this job
+            </button>
           </div>
         </div>
 
