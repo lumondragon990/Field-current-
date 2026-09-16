@@ -96,7 +96,7 @@ export default function AdminJob() {
         </div>
 
         <div className="card">
-          <h2>Upload photos &amp; reports</h2>
+          <h2>Upload photos & reports</h2>
           <form onSubmit={post}>
             <div className="field">
               <label>Type</label>
