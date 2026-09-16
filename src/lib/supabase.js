@@ -32,7 +32,7 @@ export function friendlyError(error, what) {
   if (!error) return ''
   if (!configOk) return 'App is not connected yet — the Supabase keys are missing in Vercel.'
   if (error.code === '23505') return 'That code is already in use — pick another.'
-  if (error.code === '42P01' || (error.message || '').includes('does not exist'))
+  if (error.code === '42P01' || (error.message || '').includes('does not exist') || (error.message || '').includes('schema cache'))
     return 'Database tables are missing — run the setup SQL in Supabase (SQL Editor).'
   if (error.code === '42501' || (error.message || '').toLowerCase().includes('row-level security'))
     return 'Database permissions are blocking this — re-run the setup SQL in Supabase.'
