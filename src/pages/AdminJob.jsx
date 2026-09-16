@@ -4,6 +4,26 @@ import { supabase, uploadPhotos, STATUS_LABELS, friendlyError } from '../lib/sup
 import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
 
+// Shrink a photo before sending it to the AI
+function toScanImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const urlObj = URL.createObjectURL(file)
+    img.onload = () => {
+      const max = 1600
+      const scale = Math.min(1, max / Math.max(img.width, img.height))
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(urlObj)
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1])
+    }
+    img.onerror = () => { URL.revokeObjectURL(urlObj); reject(new Error('bad image')) }
+    img.src = urlObj
+  })
+}
+
 export default function AdminJob() {
   const { ok, role, tryPin } = usePinGate()
   const { id } = useParams()
@@ -20,6 +40,7 @@ export default function AdminJob() {
   const [refFiles, setRefFiles] = useState([])
   const [setupBusy, setSetupBusy] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
+  const [taskScan, setTaskScan] = useState({ state: 'idle', msg: '' })
   const [big, setBig] = useState(null)
   const [toast, setToast] = useToast()
   const fileRef = useRef()
@@ -79,6 +100,31 @@ export default function AdminJob() {
     })
     setToast(`Status set to ${STATUS_LABELS[status]}`)
     load()
+  }
+
+  async function scanTasks(e) {
+    const file = (e.target.files || [])[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      setTaskScan({ state: 'busy', msg: 'AI is reading the task list…' })
+      const base64 = await toScanImage(file)
+      const r = await fetch('/api/scan-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, media_type: 'image/jpeg' })
+      })
+      const j = await r.json()
+      if (j.error) throw new Error(j.error)
+      if (!j.tasks) throw new Error('No tasks could be read — try a clearer, straight-on photo.')
+      setSetup(prev => ({
+        ...prev,
+        daily_tasks: prev.daily_tasks ? `${prev.daily_tasks}\n${j.tasks}` : j.tasks
+      }))
+      setTaskScan({ state: 'done', msg: `Checklist created — ${j.count || 'the'} tasks added below. Hit Save job setup to keep it.` })
+    } catch (err) {
+      setTaskScan({ state: 'fail', msg: (err && err.message) || 'Could not read the task list.' })
+    }
   }
 
   async function saveSetup(e) {
@@ -182,8 +228,18 @@ export default function AdminJob() {
           <form onSubmit={saveSetup}>
             <div className="field"><label>Scope of work</label>
               <textarea value={setup.scope} onChange={e => setSetup({ ...setup, scope: e.target.value })} /></div>
-            <div className="field"><label>Daily tasks</label>
-              <textarea placeholder="e.g. Day shift: assemble radiators, torque checks, oil processing…" value={setup.daily_tasks}
+            <div className="field">
+              <label>Scan a task list — upload a screenshot or photo of the daily activities and the AI turns it into a checklist</label>
+              <input type="file" accept="image/*" onChange={scanTasks} />
+            </div>
+            {taskScan.state !== 'idle' && (
+              <p className="mono" style={{ fontSize: 13, color: taskScan.state === 'fail' ? 'var(--red)' : taskScan.state === 'done' ? 'var(--green)' : 'var(--ink-soft)' }}>
+                {taskScan.state === 'busy' ? '⏳ ' : taskScan.state === 'done' ? '✓ ' : '⚠ '}{taskScan.msg}
+              </p>
+            )}
+            <div className="field"><label>Daily tasks (checklist)</label>
+              <textarea style={{ minHeight: 160, fontFamily: 'var(--mono)', fontSize: 14 }}
+                placeholder={'[ ] Assemble radiators\n[ ] Torque checks\n[ ] Oil processing…'} value={setup.daily_tasks}
                 onChange={e => setSetup({ ...setup, daily_tasks: e.target.value })} /></div>
             <div className="field">
               <label>Reference files — nameplate, drawings, cronogram (photos)</label>
