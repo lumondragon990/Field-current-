@@ -5,7 +5,7 @@ import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../c
 import { usePinGate, PinScreen } from './Admin.jsx'
 
 export default function AdminJob() {
-  const { ok, tryPin } = usePinGate()
+  const { ok, role, tryPin } = usePinGate()
   const { id } = useParams()
   const nav = useNavigate()
   const [jobSpend, setJobSpend] = useState(null)
@@ -74,6 +74,17 @@ export default function AdminJob() {
     })
     setToast(`Status set to ${STATUS_LABELS[status]}`)
     load()
+  }
+
+  async function deleteJob() {
+    if (!job) return
+    const sure = window.confirm(
+      `Delete the job "${job.title}"?\n\nThis removes it and ALL its updates and photos — for you and for the customer. This cannot be undone.`
+    )
+    if (!sure) return
+    const { error } = await supabase.from('jobs').delete().eq('id', id)
+    if (error) { setToast(friendlyError(error, 'Delete')); return }
+    nav(`/admin/customer/${job.customer_id}`)
   }
 
   if (!ok) return <PinScreen tryPin={tryPin} />
@@ -147,6 +158,14 @@ export default function AdminJob() {
         <h2 style={{ marginTop: 24 }}>Timeline — includes customer comments</h2>
         {updates?.length === 0 && <div className="empty">No updates posted yet.</div>}
         {updates?.map(u => <UpdateCard key={u.id} u={u} onPhotoClick={setBig} />)}
+
+        {role === 'admin' && (
+          <div className="card" style={{ marginTop: 24 }}>
+            <h2>Delete this job (admin only)</h2>
+            <p className="muted">Removes the job and everything posted on it, for you and the customer. Receipts already saved stay in Receipts &amp; purchases.</p>
+            <button className="btn danger" type="button" onClick={deleteJob}>Delete job</button>
+          </div>
+        )}
 
         <Lightbox url={big} onClose={() => setBig(null)} />
         <Toast msg={toast} />
