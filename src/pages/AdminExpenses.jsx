@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { supabase, uploadPhotos, fmtStamp, friendlyError } from '../lib/supabase.js'
 import { TopBar, Lightbox, Toast, useToast } from '../components.jsx'
 import { usePinGate, PinScreen } from './Admin.jsx'
@@ -31,8 +31,10 @@ function toScanImage(file) {
 export default function AdminExpenses() {
   const { ok, tryPin } = usePinGate()
   const [params] = useSearchParams()
+  const nav = useNavigate()
   const jobId = params.get('job')
   const [job, setJob] = useState(null)
+  const [jobs, setJobs] = useState([])
   const [expenses, setExpenses] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
@@ -60,6 +62,10 @@ export default function AdminExpenses() {
       }
     } else {
       setJob(null)
+      const { data: js } = await supabase.from('jobs')
+        .select('id, title, job_number, customers(company)')
+        .order('created_at', { ascending: false })
+      setJobs(js || [])
     }
   }
 
@@ -180,6 +186,21 @@ export default function AdminExpenses() {
             {showForm ? 'Cancel' : '+ Add receipt'}
           </button>
         </div>
+
+        {!jobId && jobs.length > 0 && (
+          <div className="card">
+            <h2>Adding a receipt for a job? Pick the job</h2>
+            <p className="muted">Tap the job — the form opens with everything set for it. Or use "+ Add receipt" above for a general purchase.</p>
+            <div className="btn-row">
+              {jobs.map(j => (
+                <button key={j.id} className="btn ghost small" type="button"
+                  onClick={() => nav(`/admin/expenses?job=${j.id}`)}>
+                  {j.title}{j.customers?.company ? ` — ${j.customers.company}` : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="card">
           <div className="row-between">
