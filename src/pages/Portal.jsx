@@ -27,7 +27,7 @@ export default function Portal() {
       <TopBar />
       <div className="wrap">
         <div className="empty" style={{ marginTop: 40 }}>
-          That access code was not found. Double-check it with your Tradelec contact,
+          That code was not found. Double-check it with your Tradelec contact,
           or go back to the <a href="/">home page</a>.
         </div>
       </div>
