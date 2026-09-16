@@ -84,12 +84,12 @@ export default function AdminExpenses() {
 
   return (
     <>
-      <TopBar who="RECEIPTS &amp; PURCHASES" homeTo="/admin" />
+      <TopBar who="RECEIPTS & PURCHASES" homeTo="/admin" />
       <div className="wrap">
         <div className="page-head row-between">
           <div>
             <div className="eyebrow">Field console</div>
-            <h1>Receipts &amp; purchases</h1>
+            <h1>Receipts & purchases</h1>
           </div>
           <button className="btn amber small" onClick={() => setShowForm(s => !s)}>
             {showForm ? 'Cancel' : '+ Add receipt'}
