@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx'
 import Admin from './pages/Admin.jsx'
 import AdminCustomer from './pages/AdminCustomer.jsx'
 import AdminJob from './pages/AdminJob.jsx'
+import AdminExpenses from './pages/AdminExpenses.jsx'
 import Portal from './pages/Portal.jsx'
 import PortalJob from './pages/PortalJob.jsx'
 
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/customer/:id" element={<AdminCustomer />} />
         <Route path="/admin/job/:id" element={<AdminJob />} />
+        <Route path="/admin/expenses" element={<AdminExpenses />} />
         <Route path="/c/:code" element={<Portal />} />
         <Route path="/c/:code/job/:id" element={<PortalJob />} />
       </Routes>
