@@ -36,6 +36,7 @@ ${refs.length > 0 ? 'Reference images are attached (may include the transformer 
 Write a professional, client-friendly daily field report. Requirements:
 - Plain text only, no markdown symbols (#, *, -). Use short paragraphs and simple line breaks. Section labels in CAPS followed by a colon are fine.
 - Sections: WORK COMPLETED TODAY, EQUIPMENT (only if nameplate data is available), FINDINGS / OBSERVATIONS (if any), NEXT STEPS.
+- If the planned daily tasks are formatted as a checklist (lines starting with [ ] or [x]), also include a DAILY CHECKLIST section listing every task, marking each line [x] if the technician's notes indicate it was completed and [ ] if not. Do not drop tasks and do not mark anything complete unless the notes support it.
 - Clear and confident, no jargon the customer would not know, no invented facts — only what the notes, scope, tasks, and images support.
 - Keep it under 250 words.
 
