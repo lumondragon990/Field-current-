@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
+import { supabase, uploadPhotos, friendlyError } from '../lib/supabase.js'
 import { TopBar, StatusBadge, UpdateCard, Lightbox, Toast, useToast } from '../components.jsx'
 
 export default function PortalJob() {
@@ -10,9 +10,11 @@ export default function PortalJob() {
   const [updates, setUpdates] = useState(null)
   const [filter, setFilter] = useState('all')
   const [comment, setComment] = useState('')
-  const [sending, setSending] = useState(false)
+  const [files, setFiles] = useState([])
+  const [sending, setSending] = useState('')
   const [big, setBig] = useState(null)
   const [toast, setToast] = useToast()
+  const fileRef = useRef()
 
   useEffect(() => {
     load()
@@ -46,16 +48,25 @@ export default function PortalJob() {
 
   async function sendComment(e) {
     e.preventDefault()
-    if (!comment.trim()) return
-    setSending(true)
-    const { error } = await supabase.from('updates').insert({
-      job_id: id, kind: 'comment', body: comment.trim(), author: `${company} (customer)`
-    })
-    setSending(false)
-    if (error) { setToast('Could not send. Try again.'); return }
-    setComment('')
-    setToast('Comment sent to the Tradelec team')
-    load()
+    if (!comment.trim() && files.length === 0) { setToast('Write a note or add a photo first'); return }
+    try {
+      setSending('Sending…')
+      let photo_urls = []
+      if (files.length > 0) photo_urls = await uploadPhotos(id, files, setSending)
+      const { error } = await supabase.from('updates').insert({
+        job_id: id, kind: 'comment',
+        body: comment.trim() || null,
+        photo_urls,
+        author: `${company} (customer)`
+      })
+      if (error) throw error
+      setComment(''); setFiles([])
+      if (fileRef.current) fileRef.current.value = ''
+      setToast('Sent to the Tradelec team')
+      load()
+    } catch (err) {
+      setToast(friendlyError(err, 'Send'))
+    } finally { setSending('') }
   }
 
   const shown = (updates || []).filter(u => filter === 'all' ? true : u.kind === filter)
@@ -95,18 +106,25 @@ export default function PortalJob() {
         </div>
 
         <div className="card no-print">
-          <h2>Questions or comments?</h2>
-          <p className="muted">Write to the Tradelec team here — it goes straight to this job's timeline.</p>
+          <h2>Send us notes or photos</h2>
+          <p className="muted">Questions, requests, or photos of your transformer — they go straight to this job's timeline and the Tradelec team.</p>
           <form onSubmit={sendComment}>
             <div className="field">
+              <label>Your note</label>
               <textarea placeholder="e.g. Can you send a photo of the nameplate before you close up?"
                 value={comment} onChange={e => setComment(e.target.value)} />
             </div>
-            <button className="btn" disabled={sending}>{sending ? 'Sending…' : 'Send comment'}</button>
+            <div className="field">
+              <label>Photos — camera or camera roll (optional)</label>
+              <input ref={fileRef} type="file" accept="image/*" multiple
+                onChange={e => setFiles(Array.from(e.target.files || []))} />
+              {files.length > 0 && <p className="muted">{files.length} photo{files.length > 1 ? 's' : ''} selected</p>}
+            </div>
+            <button className="btn" disabled={!!sending}>{sending || 'Send to Tradelec'}</button>
           </form>
         </div>
 
-        <h2>Field timeline</h2>
+        <h2>Live field timeline</h2>
         {updates?.length === 0 && (
           <div className="empty">Nothing posted yet. Updates from the crew will appear here instantly — no refresh needed.</div>
         )}
