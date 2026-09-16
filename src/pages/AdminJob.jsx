@@ -16,6 +16,10 @@ export default function AdminJob() {
   const [body, setBody] = useState('')
   const [files, setFiles] = useState([])
   const [busy, setBusy] = useState('')
+  const [setup, setSetup] = useState({ scope: '', daily_tasks: '' })
+  const [refFiles, setRefFiles] = useState([])
+  const [setupBusy, setSetupBusy] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
   const [big, setBig] = useState(null)
   const [toast, setToast] = useToast()
   const fileRef = useRef()
@@ -39,6 +43,7 @@ export default function AdminJob() {
   async function load() {
     const { data: j } = await supabase.from('jobs').select('*, customers(company)').eq('id', id).single()
     setJob(j)
+    if (j) setSetup({ scope: j.scope || '', daily_tasks: j.daily_tasks || '' })
     const { data: u } = await supabase.from('updates').select('*')
       .eq('job_id', id).order('created_at', { ascending: false })
     setUpdates(u || [])
@@ -74,6 +79,53 @@ export default function AdminJob() {
     })
     setToast(`Status set to ${STATUS_LABELS[status]}`)
     load()
+  }
+
+  async function saveSetup(e) {
+    e.preventDefault()
+    try {
+      setSetupBusy('Saving…')
+      let reference_urls = Array.isArray(job?.reference_urls) ? [...job.reference_urls] : []
+      if (refFiles.length > 0) {
+        const added = await uploadPhotos(`refs-${id}`, refFiles, setSetupBusy)
+        reference_urls = [...reference_urls, ...added]
+      }
+      const { error } = await supabase.from('jobs')
+        .update({ scope: setup.scope.trim() || null, daily_tasks: setup.daily_tasks.trim() || null, reference_urls })
+        .eq('id', id)
+      if (error) throw error
+      setRefFiles([])
+      setToast('Job setup saved')
+      load()
+    } catch (err) {
+      setToast(friendlyError(err, 'Save'))
+    } finally { setSetupBusy('') }
+  }
+
+  async function aiReport() {
+    try {
+      setAiBusy(true)
+      const r = await fetch('/api/write-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          job: {
+            title: job?.title, customer: job?.customers?.company, site: job?.site,
+            status: job?.status, scope: setup.scope || job?.scope, daily_tasks: setup.daily_tasks || job?.daily_tasks
+          },
+          notes: body,
+          reference_urls: Array.isArray(job?.reference_urls) ? job.reference_urls : []
+        })
+      })
+      const j = await r.json()
+      if (j.error) throw new Error(j.error)
+      setKind('report')
+      setTitle(j.headline || 'Daily field report')
+      setBody(j.report || '')
+      setToast('AI drafted the report — read it, fix anything, then Post')
+    } catch (err) {
+      setToast((err && err.message) || 'AI could not write the report — try again')
+    } finally { setAiBusy(false) }
   }
 
   async function deleteJob() {
@@ -125,6 +177,32 @@ export default function AdminJob() {
         </div>
 
         <div className="card">
+          <h2>Job setup — scope, daily tasks &amp; reference files</h2>
+          <p className="muted">Internal only — the customer does not see this. The AI uses it to write reports.</p>
+          <form onSubmit={saveSetup}>
+            <div className="field"><label>Scope of work</label>
+              <textarea value={setup.scope} onChange={e => setSetup({ ...setup, scope: e.target.value })} /></div>
+            <div className="field"><label>Daily tasks</label>
+              <textarea placeholder="e.g. Day shift: assemble radiators, torque checks, oil processing…" value={setup.daily_tasks}
+                onChange={e => setSetup({ ...setup, daily_tasks: e.target.value })} /></div>
+            <div className="field">
+              <label>Reference files — nameplate, drawings, cronogram (photos)</label>
+              <input type="file" accept="image/*" multiple
+                onChange={e => setRefFiles(Array.from(e.target.files || []))} />
+              {refFiles.length > 0 && <p className="muted">{refFiles.length} file{refFiles.length > 1 ? 's' : ''} to upload on save</p>}
+            </div>
+            {Array.isArray(job?.reference_urls) && job.reference_urls.length > 0 && (
+              <div className="photo-grid" style={{ marginBottom: 10 }}>
+                {job.reference_urls.map((url, i) => (
+                  <img key={i} src={url} alt={`Reference ${i + 1}`} loading="lazy" onClick={() => setBig(url)} />
+                ))}
+              </div>
+            )}
+            <button className="btn" disabled={!!setupBusy}>{setupBusy || 'Save job setup'}</button>
+          </form>
+        </div>
+
+        <div className="card">
           <h2>Upload photos & reports</h2>
           <form onSubmit={post}>
             <div className="field">
@@ -142,8 +220,13 @@ export default function AdminJob() {
             </div>
             <div className="field">
               <label>{kind === 'report' ? 'Report' : 'Notes'}</label>
-              <textarea placeholder="What did the crew find or complete?" value={body}
+              <textarea placeholder="Type rough notes from the field, then let the AI turn them into the client report…" value={body}
                 onChange={e => setBody(e.target.value)} />
+            </div>
+            <div className="btn-row">
+              <button className="btn small" type="button" onClick={aiReport} disabled={aiBusy}>
+                {aiBusy ? '⏳ AI writing…' : '✨ AI: write today\'s report'}
+              </button>
             </div>
             <div className="field">
               <label>Photos — camera or camera roll</label>
