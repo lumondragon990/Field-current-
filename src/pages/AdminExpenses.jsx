@@ -33,10 +33,10 @@ export default function AdminExpenses() {
   const [params] = useSearchParams()
   const nav = useNavigate()
   const jobId = params.get('job')
+  const general = params.get('general') === '1'
   const [job, setJob] = useState(null)
-  const [jobs, setJobs] = useState([])
+  const [jobs, setJobs] = useState(null)
   const [expenses, setExpenses] = useState(null)
-  const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     project: '', note: '', vendor: '', amount: '', receipt_date: '',
     purchased_by: localStorage.getItem('fc_emp_name') || ''
@@ -48,7 +48,9 @@ export default function AdminExpenses() {
   const [toast, setToast] = useToast()
   const fileRef = useRef()
 
-  useEffect(() => { if (ok) load() }, [ok, jobId])
+  const formOpen = Boolean(jobId || general)
+
+  useEffect(() => { if (ok) load() }, [ok, jobId, general])
 
   async function load() {
     const { data } = await supabase.from('expenses').select('*').order('created_at', { ascending: false })
@@ -56,10 +58,7 @@ export default function AdminExpenses() {
     if (jobId) {
       const { data: j } = await supabase.from('jobs').select('title, customers(company)').eq('id', jobId).maybeSingle()
       setJob(j || null)
-      if (j) {
-        setShowForm(true)
-        setForm(f => f.project ? f : { ...f, project: j.title })
-      }
+      if (j) setForm(f => f.project ? f : { ...f, project: j.title })
     } else {
       setJob(null)
       const { data: js } = await supabase.from('jobs')
@@ -115,7 +114,7 @@ export default function AdminExpenses() {
       const { error } = await supabase.from('expenses').insert({
         vendor: form.vendor.trim(), amount,
         job_id: jobId || null,
-        project: form.project.trim() || null,
+        project: (jobId ? (job?.title || form.project) : form.project).trim() || null,
         receipt_date: form.receipt_date || null,
         note: form.note.trim() || null,
         purchased_by: form.purchased_by.trim() || null,
@@ -126,7 +125,6 @@ export default function AdminExpenses() {
       setFiles([])
       setScan({ state: 'idle', msg: '' })
       if (fileRef.current) fileRef.current.value = ''
-      setShowForm(false)
       setToast(`Receipt saved — ${money(amount)} at ${form.vendor.trim()}`)
       load()
     } catch (err) {
@@ -145,7 +143,7 @@ export default function AdminExpenses() {
   if (!ok) return <PinScreen tryPin={tryPin} />
 
   const all = expenses || []
-  const list = jobId ? all.filter(x => x.job_id === jobId) : all
+  const list = jobId ? all.filter(x => x.job_id === jobId) : (general ? all : all)
   const total = list.reduce((s, x) => s + Number(x.amount || 0), 0)
   const now = new Date()
   const monthTotal = list
@@ -154,15 +152,11 @@ export default function AdminExpenses() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
     .reduce((s, x) => s + Number(x.amount || 0), 0)
-  const byVendor = {}
   const byProject = {}
-  for (const x of list) {
-    const v = x.vendor || 'Other'
-    byVendor[v] = (byVendor[v] || 0) + Number(x.amount || 0)
+  for (const x of all) {
     const p = x.project || 'No project'
     byProject[p] = (byProject[p] || 0) + Number(x.amount || 0)
   }
-  const vendorRows = Object.entries(byVendor).sort((a, b) => b[1] - a[1])
   const projectRows = Object.entries(byProject).sort((a, b) => b[1] - a[1])
 
   const scanColor = scan.state === 'fail' ? 'var(--red)' : scan.state === 'done' ? 'var(--green)' : 'var(--ink-soft)'
@@ -171,57 +165,57 @@ export default function AdminExpenses() {
     <>
       <TopBar who="RECEIPTS & PURCHASES" homeTo="/admin" />
       <div className="wrap">
-        <div className="page-head row-between">
-          <div>
-            <div className="eyebrow">Field console</div>
-            <h1>Receipts & purchases</h1>
-            {jobId && (
-              <p className="muted">
-                Showing receipts for: <strong>{job?.title || 'this job'}</strong>{job?.customers?.company ? ` (${job.customers.company})` : ''}
-                {' · '}<Link to="/admin/expenses">Show all receipts</Link>
-              </p>
-            )}
-          </div>
-          <button className="btn amber small" onClick={() => setShowForm(s => !s)}>
-            {showForm ? 'Cancel' : '+ Add receipt'}
-          </button>
+        <div className="page-head">
+          <div className="eyebrow">Field console</div>
+          <h1>Receipts & purchases</h1>
+          {jobId && (
+            <p className="muted">
+              Job: <strong>{job?.title || '…'}</strong>{job?.customers?.company ? ` — ${job.customers.company}` : ''}
+              {' · '}<Link to="/admin/expenses">← All jobs</Link>
+            </p>
+          )}
+          {general && (
+            <p className="muted">General purchase (not tied to a job) · <Link to="/admin/expenses">← All jobs</Link></p>
+          )}
         </div>
 
-        {!jobId && jobs.length > 0 && (
-          <div className="card">
-            <h2>Adding a receipt for a job? Pick the job</h2>
-            <p className="muted">Tap the job — the form opens with everything set for it. Or use "+ Add receipt" above for a general purchase.</p>
-            <div className="btn-row">
-              {jobs.map(j => (
-                <button key={j.id} className="btn ghost small" type="button"
-                  onClick={() => nav(`/admin/expenses?job=${j.id}`)}>
-                  {j.title}{j.customers?.company ? ` — ${j.customers.company}` : ''}
-                </button>
-              ))}
+        {/* ============ STEP 1: PICK THE JOB ============ */}
+        {!formOpen && (
+          <>
+            <div className="card" style={{ background: '#FFF9EC', borderColor: 'var(--amber)' }}>
+              <h2>Adding a receipt? Tap the job below</h2>
+              <p className="muted" style={{ margin: '4px 0 0' }}>The form opens with the job already set — just add the photo and the AI does the typing.</p>
             </div>
-          </div>
+
+            {jobs === null && <p className="muted">Loading jobs…</p>}
+            {jobs?.length === 0 && (
+              <div className="empty">No jobs yet. Create one first: Customers → tap the customer → + New job.</div>
+            )}
+            {jobs?.map(j => (
+              <div key={j.id} className="card click" onClick={() => nav(`/admin/expenses?job=${j.id}`)}>
+                <div className="row-between">
+                  <div>
+                    <h2>{j.title}</h2>
+                    <p className="muted">{j.customers?.company}{j.job_number ? ` · #${j.job_number}` : ''}</p>
+                  </div>
+                  <span className="badge in_progress">Add receipt →</span>
+                </div>
+              </div>
+            ))}
+
+            <p className="muted" style={{ textAlign: 'center' }}>
+              Purchase not for any job? <Link to="/admin/expenses?general=1">Add a general receipt</Link>
+            </p>
+          </>
         )}
 
-        <div className="card">
-          <div className="row-between">
-            <div>
-              <div className="eyebrow">Total spent</div>
-              <h2 style={{ fontSize: 30 }}>{money(total)}</h2>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="eyebrow">This month</div>
-              <h2 style={{ fontSize: 30 }}>{money(monthTotal)}</h2>
-            </div>
-          </div>
-        </div>
-
-        {showForm && (
+        {/* ============ STEP 2: THE RECEIPT FORM ============ */}
+        {formOpen && (
           <div className="card">
             <h2>New receipt — AI does the reading</h2>
-            <p className="muted">1. Add the receipt photo. 2. The AI fills in the store, amount, and date. 3. Add the project, check it, Save.</p>
             <form onSubmit={addExpense}>
               <div className="field">
-                <label>Step 1 — Receipt photo (camera or camera roll) *</label>
+                <label>Receipt photo — camera or camera roll *</label>
                 <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPickFiles} />
               </div>
 
@@ -231,13 +225,15 @@ export default function AdminExpenses() {
                 </p>
               )}
 
-              <div className="field"><label>Step 2 — Project / job name</label>
-                <input placeholder="e.g. WEG transformer — Power Line Supply" value={form.project}
-                  onChange={e => setForm({ ...form, project: e.target.value })} /></div>
+              {general && (
+                <div className="field"><label>Project / what area is this for</label>
+                  <input placeholder="e.g. Shop supplies" value={form.project}
+                    onChange={e => setForm({ ...form, project: e.target.value })} /></div>
+              )}
+
               <div className="field"><label>What was it for</label>
                 <input placeholder="AI fills this from the receipt — edit if needed" value={form.note}
                   onChange={e => setForm({ ...form, note: e.target.value })} /></div>
-
               <div className="field"><label>Store (AI-filled — check it)</label>
                 <input value={form.vendor}
                   onChange={e => setForm({ ...form, vendor: e.target.value })} /></div>
@@ -256,34 +252,47 @@ export default function AdminExpenses() {
           </div>
         )}
 
-        {projectRows.length > 0 && (
+        {/* ============ TOTALS & LIST ============ */}
+        {formOpen && jobId && (
           <div className="card">
-            <h2>Spent by project</h2>
-            {projectRows.map(([p, amt]) => (
-              <div key={p} className="row-between" style={{ padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
-                <span>{p}</span>
-                <span className="mono">{money(amt)}</span>
-              </div>
-            ))}
+            <div className="eyebrow">Spent on this job</div>
+            <h2 style={{ fontSize: 30 }}>{money(total)}</h2>
           </div>
         )}
 
-        {vendorRows.length > 0 && (
-          <div className="card">
-            <h2>Spent by store</h2>
-            {vendorRows.map(([v, amt]) => (
-              <div key={v} className="row-between" style={{ padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
-                <span>{v}</span>
-                <span className="mono">{money(amt)}</span>
+        {!formOpen && (
+          <>
+            <div className="card">
+              <div className="row-between">
+                <div>
+                  <div className="eyebrow">Total spent</div>
+                  <h2 style={{ fontSize: 30 }}>{money(total)}</h2>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="eyebrow">This month</div>
+                  <h2 style={{ fontSize: 30 }}>{money(monthTotal)}</h2>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+
+            {projectRows.length > 0 && (
+              <div className="card">
+                <h2>Spent by job / project</h2>
+                {projectRows.map(([p, amt]) => (
+                  <div key={p} className="row-between" style={{ padding: '8px 0', borderBottom: '1px dashed var(--line)' }}>
+                    <span>{p}</span>
+                    <span className="mono">{money(amt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
-        <h2 style={{ marginTop: 24 }}>All receipts</h2>
+        <h2 style={{ marginTop: 24 }}>{jobId ? 'Receipts on this job' : 'All receipts'}</h2>
         {expenses === null && <p className="muted">Loading…</p>}
-        {list.length === 0 && expenses !== null && (
-          <div className="empty">No receipts yet. Tap "+ Add receipt", snap the receipt, and let the AI do the typing.</div>
+        {expenses !== null && list.length === 0 && (
+          <div className="empty">{jobId ? 'No receipts on this job yet.' : 'No receipts yet.'}</div>
         )}
         {list.map(x => (
           <div key={x.id} className="tag-card kind-report">
@@ -292,7 +301,7 @@ export default function AdminExpenses() {
               <span className="tag-stamp">{x.receipt_date || fmtStamp(x.created_at)}</span>
             </div>
             <div className="tag-body">
-              {x.project && <p><strong>Project:</strong> {x.project}</p>}
+              {!jobId && x.project && <p><strong>Job:</strong> {x.project}</p>}
               {x.note && <p>{x.note}</p>}
               {Array.isArray(x.photo_urls) && x.photo_urls.length > 0 && (
                 <div className="photo-grid">
