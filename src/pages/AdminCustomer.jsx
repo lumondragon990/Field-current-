@@ -11,7 +11,7 @@ export default function AdminCustomer() {
   const [customer, setCustomer] = useState(null)
   const [jobs, setJobs] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', site: '', scope: '', job_number: '' })
+  const [form, setForm] = useState({ title: '', site: '', scope: '', daily_tasks: '', job_number: '' })
   const [codeEdit, setCodeEdit] = useState('')
   const [toast, setToast] = useToast()
 
@@ -42,7 +42,7 @@ export default function AdminCustomer() {
     if (!form.title.trim()) return
     const { error } = await supabase.from('jobs').insert({ ...form, customer_id: id, status: 'scheduled' })
     if (error) { setToast(friendlyError(error, 'Save')); return }
-    setForm({ title: '', site: '', scope: '', job_number: '' })
+    setForm({ title: '', site: '', scope: '', daily_tasks: '', job_number: '' })
     setShowForm(false)
     setToast('Job created')
     load()
@@ -109,6 +109,8 @@ export default function AdminCustomer() {
                 <input value={form.job_number} onChange={e => setForm({ ...form, job_number: e.target.value })} /></div>
               <div className="field"><label>Scope of work</label>
                 <textarea value={form.scope} onChange={e => setForm({ ...form, scope: e.target.value })} /></div>
+              <div className="field"><label>Daily tasks (what the crew does each day — the AI uses this for reports)</label>
+                <textarea value={form.daily_tasks} onChange={e => setForm({ ...form, daily_tasks: e.target.value })} /></div>
               <button className="btn">Create job</button>
             </form>
           </div>
